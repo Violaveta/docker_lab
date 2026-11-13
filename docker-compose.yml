@@ -1,12 +1,7 @@
-version: '3.8'
+
 services:
-  web:
-    image: transport-app
+  api:
+    build: .
+    container_name: transport-api
     ports:
-      - "8080:80"
-    depends_on:
-      - cache
-  cache:
-    image: redis:alpine
-    ports:
-      - "6379:6379"
+      - "8000:8000"

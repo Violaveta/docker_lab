@@ -1,0 +1,29 @@
+name: REST API CI
+
+on:
+  push:
+    branches: [main, feature/rest-api-docker-ci]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-and-check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Check Python syntax
+        run: python -m compileall app
+
+      - name: Build Docker image
+        run: docker build -t transport-api .
