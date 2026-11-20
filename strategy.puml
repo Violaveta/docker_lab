@@ -1,0 +1,21 @@
+@startuml
+title Strategy: расчёт платы за перевозку
+
+interface TariffStrategy {
+  +cost(massTons, distanceKm) : double
+  +title() : String
+}
+
+class TariffCalculator {
+  +calculate(tariffStrategy, massTons, distanceKm) : double
+}
+
+class WagonTariff
+class ContainerTariff
+class BlockTrainTariff
+
+TariffCalculator o--> TariffStrategy : использует
+TariffStrategy <|.. WagonTariff
+TariffStrategy <|.. ContainerTariff
+TariffStrategy <|.. BlockTrainTariff
+@enduml
