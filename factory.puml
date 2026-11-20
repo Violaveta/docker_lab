@@ -1,0 +1,37 @@
+@startuml
+title Factory Method: создание транспортного средства (Вариант 5)
+
+interface Vehicle {
+  +description() : String
+  +capacityTons() : double
+}
+
+interface VehicleCreator {
+  +createVehicle(capacityTons : double) : Vehicle
+}
+
+class Truck
+class Bus
+class Van
+class RefrigeratorTruck
+
+class TruckCreator
+class BusCreator
+class VanCreator
+class RefrigeratorTruckCreator
+
+Vehicle <|.. Truck
+Vehicle <|.. Bus
+Vehicle <|.. Van
+Vehicle <|.. RefrigeratorTruck
+
+VehicleCreator <|.. TruckCreator
+VehicleCreator <|.. BusCreator
+VehicleCreator <|.. VanCreator
+VehicleCreator <|.. RefrigeratorTruckCreator
+
+TruckCreator ..> Truck : создаёт
+BusCreator ..> Bus : создаёт
+VanCreator ..> Van : создаёт
+RefrigeratorTruckCreator ..> RefrigeratorTruck : создаёт
+@enduml

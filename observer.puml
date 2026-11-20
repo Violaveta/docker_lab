@@ -1,0 +1,26 @@
+@startuml
+title Observer: закрытие путевого листа (Вариант 5)
+
+interface WaybillListener {
+  +onWaybillClosed(enterpriseName : String, waybillNumber : String) : void
+}
+
+class DispatchCenter {
+  -enterpriseName : String
+  -listeners : List<WaybillListener>
+  +addListener(listener : WaybillListener) : void
+  +removeListener(listener : WaybillListener) : void
+  +closeWaybill(waybillNumber : String) : void
+}
+
+class AccountingService
+class WaybillJournal
+class FuelControlService
+class ErpSyncService
+
+DispatchCenter o--> "*" WaybillListener : оповещает
+WaybillListener <|.. AccountingService
+WaybillListener <|.. WaybillJournal
+WaybillListener <|.. FuelControlService
+WaybillListener <|.. ErpSyncService
+@enduml
