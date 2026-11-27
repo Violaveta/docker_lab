@@ -1,4 +1,4 @@
-// 5.1 Исправленный вариант ShiftPlanLegacy по замечаниям из ReviewNotes.csv
+// 5.1 Исправленный вариант ShiftPlanLegacy (с учётом замечаний ревьюера)
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -12,12 +12,11 @@ import java.util.List;
 
 public class ShiftPlanFixed {
 
-    // Замечание 5 и 7: потокобезопасный форматтер и именованная константа вместо магического числа
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("dd.MM.yyyy");
     private static final double MAX_SHIFT_HOURS = 10.0;
 
-    // Замечание 5: журнал — поле экземпляра, а не общий статический список
-    private final List<String> log = new ArrayList<>();
+    // Потокобезопасный журнал экземпляра (по замечанию minor)
+    private final List<String> log = Collections.synchronizedList(new ArrayList<>());
 
     private static int failedChecks = 0;
 
@@ -67,10 +66,16 @@ public class ShiftPlanFixed {
         check("при некорректных аргументах (0 или null) выбрасывается IllegalArgumentException",
                 invalidArgsCaught && nullListCaught);
 
-        // Проверка 5: журнал фиксирует события с датой
-        check("журнал экземпляра содержит записи о формировании нарядов", planner.getLog().size() == 2);
+        // Проверка 5: валидация в конструкторе Brigade (по замечанию major)
+        boolean invalidBrigadeCaught = false;
+        try {
+            new Brigade("   ", -1.0, true);
+        } catch (IllegalArgumentException e) {
+            invalidBrigadeCaught = true;
+        }
+        check("конструктор Brigade отклоняет пустую фамилию и отрицательные часы", invalidBrigadeCaught);
 
-        // Проверка 6: запись в файл через try-with-resources работает корректно
+        // Проверка 6: запись в файл и фиксация события в журнале (по замечанию major)
         Path tempFile = Path.of("наряд.txt");
         planner.saveShiftPlan(plan, tempFile);
         boolean fileWrittenCorrectly = false;
@@ -80,6 +85,7 @@ public class ShiftPlanFixed {
             fileWrittenCorrectly = false;
         }
         check("наряд корректно сохранён в файл", fileWrittenCorrectly);
+        check("журнал экземпляра содержит запись после сохранения наряда", planner.getLog().size() == 1);
 
         if (failedChecks > 0) {
             throw new AssertionError("не пройдено проверок: " + failedChecks);
@@ -89,10 +95,9 @@ public class ShiftPlanFixed {
     }
 
     /**
-     * Замечание 6 и 8: чистый метод формирования наряда (отделён от записи в файл).
+     * Чистый метод формирования наряда (без побочных эффектов записи в файл и журнал).
      */
     public String buildShiftPlan(List<Brigade> brigades, int requiredCount) {
-        // Замечание 2: проверка входных аргументов
         if (brigades == null) {
             throw new IllegalArgumentException("Список бригад не может быть null");
         }
@@ -100,33 +105,27 @@ public class ShiftPlanFixed {
             throw new IllegalArgumentException("Требуемое количество бригад должно быть больше 0");
         }
 
-        // Замечание 1 и 7: отбор в новый список без изменения исходного, без магических чисел
         List<Brigade> available = new ArrayList<>();
         for (Brigade brigade : brigades) {
-            if (brigade != null && brigade.hoursPerShift <= MAX_SHIFT_HOURS && brigade.admitted) {
+            if (brigade != null && brigade.getHoursPerShift() <= MAX_SHIFT_HOURS && brigade.isAdmitted()) {
                 available.add(brigade);
             }
         }
 
-        // Замечание 2: проверка на достаточность бригад
         if (available.size() < requiredCount) {
             throw new IllegalArgumentException(
                     "Недостаточно доступных бригад: требуется " + requiredCount + ", доступно " + available.size());
         }
 
-        // Замечание 8: сборка строки через StringBuilder
         StringBuilder result = new StringBuilder();
         for (int i = 0; i < requiredCount; i++) {
-            result.append(available.get(i).lastName).append("; ");
+            result.append(available.get(i).getLastName()).append("; ");
         }
-
-        // Замечание 5: потокобезопасное форматирование даты
-        log.add(LocalDate.now().format(DATE_FORMATTER) + " наряд сформирован");
         return result.toString();
     }
 
     /**
-     * Замечание 3, 4 и 6: отдельный метод записи в файл с try-with-resources и пробросом ошибки.
+     * Запись наряда в файл с try-with-resources и фиксация события в журнале.
      */
     public void saveShiftPlan(String shiftPlan, Path outputPath) {
         try (FileWriter writer = new FileWriter(outputPath.toFile())) {
@@ -134,10 +133,11 @@ public class ShiftPlanFixed {
         } catch (IOException e) {
             throw new UncheckedIOException("Ошибка записи наряда в файл: " + outputPath, e);
         }
+        log.add(LocalDate.now().format(DATE_FORMATTER) + " наряд сформирован");
     }
 
     public List<String> getLog() {
-        return Collections.unmodifiableList(log);
+        return List.copyOf(log);
     }
 
     static void check(String checkName, boolean passed) {
@@ -149,13 +149,31 @@ public class ShiftPlanFixed {
 }
 
 class Brigade {
-    final String lastName;
-    final double hoursPerShift;
-    final boolean admitted;
+    private final String lastName;
+    private final double hoursPerShift;
+    private final boolean admitted;
 
     Brigade(String lastName, double hoursPerShift, boolean admitted) {
+        if (lastName == null || lastName.isBlank()) {
+            throw new IllegalArgumentException("Фамилия бригады не может быть пустой");
+        }
+        if (hoursPerShift < 0) {
+            throw new IllegalArgumentException("Часы работы за смену не могут быть отрицательными");
+        }
         this.lastName = lastName;
         this.hoursPerShift = hoursPerShift;
         this.admitted = admitted;
+    }
+
+    public String getLastName() {
+        return lastName;
+    }
+
+    public double getHoursPerShift() {
+        return hoursPerShift;
+    }
+
+    public boolean isAdmitted() {
+        return admitted;
     }
 }
